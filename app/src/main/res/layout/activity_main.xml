@@ -53,7 +53,7 @@
         android:background="@color/lcd_negro"
         android:padding="12dp">
 
-        <!-- Top Bar: Fecha y Hora -->
+        <!-- Top Bar: Fecha, Hora y Alerta de Velocidad -->
         <LinearLayout
             android:id="@+id/topBar"
             android:layout_width="match_parent"
@@ -71,6 +71,19 @@
                 android:textColor="@color/texto_cyan"
                 android:textSize="14sp"
                 android:fontFamily="monospace" />
+
+            <!-- Alerta de Exceso de Velocidad (intermitente) -->
+            <TextView
+                android:id="@+id/tvAlertaVelocidad"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="EXCESO VELO"
+                android:textColor="#FF0000"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:fontFamily="monospace"
+                android:visibility="gone"
+                android:layout_marginEnd="16dp" />
 
             <TextView
                 android:id="@+id/tvHora"
@@ -138,6 +151,20 @@
                 android:fontFamily="monospace" />
         </LinearLayout>
 
+        <!-- Mensaje Central para Estado INACTIVO -->
+        <TextView
+            android:id="@+id/tvMensajeInactivo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerInParent="true"
+            android:text="TAXIMETRO\nINACTIVO"
+            android:textColor="@color/texto_cyan"
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:gravity="center"
+            android:visibility="gone" />
+
         <!-- Zona Inferior: Tabla de Datos -->
         <LinearLayout
             android:id="@+id/zonaDatos"
@@ -186,6 +213,25 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="$190"
+                    android:textColor="@color/texto_blanco"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:fontFamily="monospace" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Distancia"
+                    android:textColor="@color/texto_cyan"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:paddingTop="8dp" />
+
+                <TextView
+                    android:id="@+id/tvDistanciaRecorrida"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0 m"
                     android:textColor="@color/texto_blanco"
                     android:textSize="14sp"
                     android:textStyle="bold"
@@ -309,9 +355,10 @@
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:background="@drawable/boton_verde"
-            android:text=""
+            android:text="Inicio"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/btnControl"
@@ -320,9 +367,10 @@
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:background="@drawable/boton_verde"
-            android:text=""
+            android:text="Control"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/btnFin"
@@ -331,9 +379,10 @@
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:background="@drawable/boton_verde"
-            android:text=""
+            android:text="Activar"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/btnMenu"
@@ -341,9 +390,10 @@
             android:layout_height="match_parent"
             android:layout_weight="1"
             android:background="@drawable/boton_verde"
-            android:text=""
+            android:text="Menú"
             android:textColor="@color/white"
-            android:textSize="12sp" />
+            android:textSize="11sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- Menú Superpuesto (inicialmente oculto) -->

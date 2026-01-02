@@ -74,3 +74,6 @@ vcs.xml
 
 # Android Profiling
 *.hprof
+
+# Temporary build error logs
+build_error.txt
