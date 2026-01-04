@@ -1,12 +1,14 @@
 package com.luis.taximetro
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.location.Location
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,11 +35,11 @@ class MainActivity : AppCompatActivity() {
 
     private var estadoActual = Estado.INACTIVO
 
-    // Tarifas
-    private val BAJADA_BANDERA = 450
-    private val COSTO_FICHA = 190
-    private val TIEMPO_FICHA_MS = 60000L // 60 segundos
-    private val METROS_POR_FICHA = 200.0 // Cada 200 metros cobra una ficha
+    // Tarifas dinámicas (se cargan desde configuración)
+    private var BAJADA_BANDERA = 450
+    private var COSTO_FICHA = 190
+    private var TIEMPO_FICHA_MS = 60000L // 60 segundos
+    private var METROS_POR_FICHA = 200.0 // Cada 200 metros cobra una ficha
 
     // Parámetros EM-900
     private val VELOCIDAD_MINIMA_KMH = 3.0
@@ -56,6 +58,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationCallback: LocationCallback
     private var lastLocation: Location? = null
     private var trackingGPS = false
+
+    // Wake Lock para mantener pantalla activa durante carreras
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    // Menu Manager
+    private lateinit var menuManager: MenuManager
 
     // Handlers para actualizaciones
     private val handlerReloj = Handler(Looper.getMainLooper())
@@ -143,9 +151,34 @@ class MainActivity : AppCompatActivity() {
 
         inicializarGPS()
         inicializarUI()
+        inicializarWakeLock()
+        inicializarMenuManager()
+        cargarTarifasDesdeConfig()
         configurarBotones()
         iniciarReloj()
         solicitarPermisosUbicacion()
+    }
+
+    private fun inicializarMenuManager() {
+        menuManager = MenuManager(this)
+        menuManager.inicializar()
+    }
+
+    private fun cargarTarifasDesdeConfig() {
+        val tarifaActiva = menuManager.obtenerTarifaActiva()
+        BAJADA_BANDERA = tarifaActiva.bajadaBandera
+        COSTO_FICHA = tarifaActiva.costoFicha
+        TIEMPO_FICHA_MS = tarifaActiva.tiempoFichaMs
+        METROS_POR_FICHA = tarifaActiva.metrosPorFicha
+    }
+
+    private fun inicializarWakeLock() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock =
+                powerManager.newWakeLock(
+                        PowerManager.SCREEN_BRIGHT_WAKE_LOCK,
+                        "Taximetro::CarreraWakeLock"
+                )
     }
 
     private fun inicializarGPS() {
@@ -320,7 +353,11 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Botón 4: Menú
-        binding.btnMenu.setOnClickListener { toggleMenu() }
+        binding.btnMenu.setOnClickListener { mostrarMenu() }
+    }
+
+    private fun mostrarMenu() {
+        menuManager.mostrarMenuPrincipal()
     }
 
     private fun activarTaximetro() {
@@ -366,6 +403,9 @@ class MainActivity : AppCompatActivity() {
         iniciarActualizacionesGPS()
         handlerTiempo.post(actualizarTiempoEspera)
 
+        // Mantener pantalla activa durante la carrera
+        adquirirWakeLock()
+
         actualizarVelocidad()
         actualizarTiempoDetenido()
         actualizarDistancia()
@@ -389,6 +429,9 @@ class MainActivity : AppCompatActivity() {
         detenerActualizacionesGPS()
         handlerTiempo.removeCallbacks(actualizarTiempoEspera)
         ocultarAlertaVelocidad()
+
+        // Liberar wake lock
+        liberarWakeLock()
 
         // Mostrar diálogo de impresión
         mostrarDialogoImpresion()
@@ -420,6 +463,8 @@ class MainActivity : AppCompatActivity() {
         )
 
         builder.setPositiveButton("OK") { dialog, _ ->
+            // Guardar viaje en historial
+            menuManager.guardarViaje(distanciaRecorrida, tiempoDetenidoSegundos, precioTotal)
             dialog.dismiss()
             resetearTaximetro()
         }
@@ -441,24 +486,14 @@ class MainActivity : AppCompatActivity() {
         distanciaRecorrida = 0.0
         lastLocation = null
 
+        // Recargar tarifas (en caso de que se hayan cambiado)
+        cargarTarifasDesdeConfig()
+
         // Actualizar UI
         actualizarPrecio()
         actualizarVelocidad()
         actualizarTiempoDetenido()
         actualizarDistancia()
-    }
-
-    private fun toggleMenu() {
-        if (binding.menuSuperpuesto.visibility == View.VISIBLE) {
-            binding.menuSuperpuesto.visibility = View.GONE
-        } else {
-            binding.menuSuperpuesto.visibility = View.VISIBLE
-        }
-
-        // Cerrar menú al hacer clic en él
-        binding.menuSuperpuesto.setOnClickListener {
-            binding.menuSuperpuesto.visibility = View.GONE
-        }
     }
 
     private fun cambiarEstado(nuevoEstado: Estado) {
@@ -602,6 +637,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun adquirirWakeLock() {
+        try {
+            if (wakeLock?.isHeld == false) {
+                wakeLock?.acquire()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(
+                            this,
+                            "Error al mantener pantalla activa: ${e.message}",
+                            Toast.LENGTH_SHORT
+                    )
+                    .show()
+        }
+    }
+
+    private fun liberarWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            // Silenciosamente manejar error al liberar
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         // Limpiar handlers y GPS
@@ -611,5 +671,9 @@ class MainActivity : AppCompatActivity() {
         if (trackingGPS) {
             detenerActualizacionesGPS()
         }
+        // Asegurar que wake lock se libera
+        liberarWakeLock()
+        // Limpiar menu manager y TTS
+        menuManager.destruir()
     }
 }
